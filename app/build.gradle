@@ -1,13 +1,30 @@
-plugins { id 'com.android.application' }
+plugins {
+    id 'com.android.application'
+}
 
 android {
     namespace 'it.riccardo.wholphintester'
     compileSdk 35
+
     defaultConfig {
         applicationId 'it.riccardo.wholphintester'
         minSdk 23
         targetSdk 35
         versionCode 1
         versionName '1.0'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField(
+                    "String",
+                    "JELLYFIN_API_KEY",
+                    "\"${project.findProperty('JELLYFIN_API_KEY') ?: ''}\""
+            )
+        }
     }
 }
