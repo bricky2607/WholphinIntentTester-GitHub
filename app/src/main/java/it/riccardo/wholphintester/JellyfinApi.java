@@ -21,21 +21,26 @@ public class JellyfinApi {
 
     public String findItemByTmdb(String tmdbId) throws Exception {
 
-        String encoded =
+        String encodedTmdb =
                 URLEncoder.encode(tmdbId, "UTF-8");
 
         String url =
                 serverUrl
                 + "/Items?Recursive=true"
                 + "&IncludeItemTypes=Movie,Series"
+                + "&Fields=ProviderIds"
                 + "&AnyProviderId="
-                + URLEncoder.encode("Tmdb=" + encoded, "UTF-8");
+                + URLEncoder.encode(
+                        "Tmdb=" + tmdbId,
+                        "UTF-8"
+                );
 
         HttpURLConnection connection =
                 (HttpURLConnection)
                         new URL(url).openConnection();
 
         connection.setRequestMethod("GET");
+
         connection.setRequestProperty(
                 "X-Emby-Token",
                 apiKey
@@ -81,9 +86,32 @@ public class JellyfinApi {
             return null;
         }
 
-        JSONObject item =
-                items.getJSONObject(0);
+        // Controlliamo esplicitamente il TMDB ID
+        // di ogni risultato.
+        for (int i = 0; i < items.length(); i++) {
 
-        return item.getString("Id");
+            JSONObject item =
+                    items.getJSONObject(i);
+
+            JSONObject providerIds =
+                    item.optJSONObject("ProviderIds");
+
+            if (providerIds == null) {
+                continue;
+            }
+
+            String foundTmdb =
+                    providerIds.optString(
+                            "Tmdb",
+                            ""
+                    );
+
+            if (tmdbId.equals(foundTmdb)) {
+
+                return item.getString("Id");
+            }
+        }
+
+        return null;
     }
 }
