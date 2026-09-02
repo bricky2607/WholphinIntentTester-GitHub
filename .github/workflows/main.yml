@@ -23,7 +23,11 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build APK
-        run: gradle assembleDebug
+        env:
+          JELLYFIN_API_KEY: ${{ secrets.JELLYFIN_API_KEY }}
+        run: |
+          gradle assembleDebug \
+            -PJELLYFIN_API_KEY="$JELLYFIN_API_KEY"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
