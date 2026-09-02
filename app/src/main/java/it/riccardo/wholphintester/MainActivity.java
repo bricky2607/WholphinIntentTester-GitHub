@@ -45,9 +45,7 @@ public class MainActivity extends Activity {
 
         TextView info = new TextView(this);
         info.setText(
-                "\nQuesta app può ricevere un Playback URI.\n\n" +
-                "Esempio:\n" +
-                "wholphinbridge://play?tmdb=12345"
+                "\nTest integrazione Google TV → Wholphin"
         );
         info.setTextSize(18);
         info.setGravity(Gravity.CENTER);
@@ -56,6 +54,19 @@ public class MainActivity extends Activity {
                 new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        Button test = new Button(this);
+        test.setText("TEST TMDB 524");
+        test.setTextSize(18);
+        test.setOnClickListener(v -> testDeepLink());
+
+        LinearLayout.LayoutParams tp =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT);
+
+        tp.topMargin = 48;
+        layout.addView(test, tp);
 
         Button play = new Button(this);
         play.setText("RIPRODUCI CON WHOLPHIN");
@@ -67,11 +78,31 @@ public class MainActivity extends Activity {
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT);
 
-        bp.topMargin = 48;
+        bp.topMargin = 24;
         layout.addView(play, bp);
 
         setContentView(layout);
-        play.requestFocus();
+        test.requestFocus();
+    }
+
+    private void testDeepLink() {
+
+        Uri uri = Uri.parse(
+                "wholphinbridge://play?tmdb=524"
+        );
+
+        Intent intent = new Intent(
+                Intent.ACTION_VIEW,
+                uri
+        );
+
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+
+        try {
+            startActivity(intent);
+        } catch (Exception e) {
+            toast("Errore apertura deep link: " + e.getMessage());
+        }
     }
 
     private void handleIntent(Intent intent) {
@@ -89,7 +120,7 @@ public class MainActivity extends Activity {
         String tmdb = data.getQueryParameter("tmdb");
         String imdb = data.getQueryParameter("imdb");
 
-        String message = "Deep link ricevuto";
+        String message = "Deep link ricevuto!";
 
         if (tmdb != null) {
             message += "\nTMDB: " + tmdb;
@@ -150,5 +181,12 @@ public class MainActivity extends Activity {
                 message,
                 Toast.LENGTH_LONG
         ).show();
+    }
+    
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
     }
 }
