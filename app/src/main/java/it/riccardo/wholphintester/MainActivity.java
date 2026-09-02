@@ -24,7 +24,7 @@ private static final String JELLYFIN_URL =
         "https://jellybrick.duckdns.org";
 
 private static final String JELLYFIN_API_KEY =
-        "INSERISCI_API_KEY";
+        BuildConfig.JELLYFIN_API_KEY;
 
 private final ExecutorService executor =
         Executors.newSingleThreadExecutor();
