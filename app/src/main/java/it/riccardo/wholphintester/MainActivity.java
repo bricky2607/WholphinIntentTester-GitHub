@@ -71,7 +71,7 @@ public class MainActivity extends Activity {
         Button play = new Button(this);
         play.setText("RIPRODUCI CON WHOLPHIN");
         play.setTextSize(18);
-        play.setOnClickListener(v -> launchWholphin());
+        play.setOnClickListener(v -> launchWholphinWithItemId(ITEM_ID));
 
         LinearLayout.LayoutParams bp =
                 new LinearLayout.LayoutParams(
@@ -120,6 +120,11 @@ public class MainActivity extends Activity {
         String tmdb = data.getQueryParameter("tmdb");
         String imdb = data.getQueryParameter("imdb");
 
+        if (tmdb == null && imdb == null) {
+            toast("Deep link ricevuto, ma nessun ID trovato.");
+            return;
+        }
+
         String message = "Deep link ricevuto!";
 
         if (tmdb != null) {
@@ -135,17 +140,33 @@ public class MainActivity extends Activity {
                 message,
                 Toast.LENGTH_LONG
         ).show();
+
+        /*
+         * Per ora utilizziamo l'ID ricevuto dal deep link.
+         *
+         * ATTENZIONE:
+         * Wholphin normalmente necessita del proprio Jellyfin
+         * itemId per aprire direttamente un elemento.
+         *
+         * Quindi il prossimo passaggio sarà collegare TMDB/IMDb
+         * al relativo itemId Jellyfin.
+         */
+
+        if (tmdb != null) {
+            toast("TMDB ricevuto: " + tmdb);
+        }
     }
 
-    private void launchWholphin() {
+    private void launchWholphinWithItemId(String itemId) {
 
         try {
 
             Intent intent = new Intent(
-                    "com.github.damontecres.wholphin.PLAYBACK");
+                    "com.github.damontecres.wholphin.PLAYBACK"
+            );
 
             intent.setPackage(WHOLPHIN_PACKAGE);
-            intent.putExtra("itemId", ITEM_ID);
+            intent.putExtra("itemId", itemId);
 
             startActivity(intent);
 
@@ -153,19 +174,21 @@ public class MainActivity extends Activity {
 
             try {
 
-                startActivity(
-                        new Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse(
-                                        "wholphin://play?itemId=" + ITEM_ID
-                                )
+                Intent fallback = new Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(
+                                "wholphin://play?itemId=" + itemId
                         )
                 );
+
+                fallback.setPackage(WHOLPHIN_PACKAGE);
+
+                startActivity(fallback);
 
             } catch (Exception ignored) {
 
                 toast(
-                        "Wholphin non ha accettato l'intent di test."
+                        "Wholphin non ha accettato l'intent."
                 );
             }
 
@@ -182,7 +205,7 @@ public class MainActivity extends Activity {
                 Toast.LENGTH_LONG
         ).show();
     }
-    
+
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
