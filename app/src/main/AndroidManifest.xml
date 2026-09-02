@@ -1,12 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
- <application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@android:drawable/ic_media_play" android:banner="@android:drawable/ic_media_play">
-  <activity android:name=".MainActivity" android:exported="true">
-   <intent-filter>
-    <action android:name="android.intent.action.MAIN" />
-    <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-    <category android:name="android.intent.category.LAUNCHER" />
-   </intent-filter>
-  </activity>
- </application>
+
+    <application
+        android:theme="@style/AppTheme"
+        android:label="@string/app_name"
+        android:icon="@android:drawable/ic_media_play"
+        android:banner="@android:drawable/ic_media_play">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+
+            <!-- Avvio normale dell'app -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Deep link utilizzabile come Playback URI di Google TV -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="wholphinbridge"
+                    android:host="play" />
+            </intent-filter>
+
+        </activity>
+
+    </application>
+
 </manifest>
