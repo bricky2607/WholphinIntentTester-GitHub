@@ -1,76 +1,76 @@
 package it.riccardo.wholphintester;
 
 import android.accessibilityservice.AccessibilityService;
-import android.util.Log;
+import android.graphics.Color;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.Toast;
 
 public class TvRecommendationAccessibilityService
         extends AccessibilityService {
 
-    private static final String TAG = "WholphinBridge";
+    private long lastToast = 0;
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
 
-        if (event == null) {
-            return;
-        }
+        if (event == null) return;
 
-        Log.d(TAG,
-                "EVENT type=" + event.getEventType()
-                + " package=" + event.getPackageName()
-                + " class=" + event.getClassName()
-                + " text=" + event.getText());
+        String packageName =
+                String.valueOf(event.getPackageName());
+
+        String text =
+                String.valueOf(event.getText());
+
+        String description = "";
 
         AccessibilityNodeInfo source = event.getSource();
 
-        if (source != null) {
-            inspectNode(source);
-        }
-    }
+        if (source != null &&
+                source.getContentDescription() != null) {
 
-    private void inspectNode(AccessibilityNodeInfo node) {
-
-        if (node == null) {
-            return;
+            description =
+                    source.getContentDescription().toString();
         }
 
-        CharSequence text = node.getText();
-        CharSequence description = node.getContentDescription();
+        // Mostra solo eventi provenienti da altre app,
+        // evitando di bombardare lo schermo con eventi nostri.
+        if (!packageName.equals(getPackageName())) {
 
-        if (text != null || description != null) {
+            String message =
+                    "APP: " + packageName
+                    + "\nTEXT: " + text
+                    + "\nDESC: " + description;
 
-            Log.d(TAG,
-                    "NODE text=" + text
-                    + " description=" + description
-                    + " class=" + node.getClassName());
-        }
+            if (System.currentTimeMillis() - lastToast > 1500) {
 
-        for (int i = 0; i < node.getChildCount(); i++) {
+                Toast toast =
+                        Toast.makeText(
+                                this,
+                                message,
+                                Toast.LENGTH_LONG
+                        );
 
-            AccessibilityNodeInfo child =
-                    node.getChild(i);
+                toast.show();
 
-            if (child != null) {
-                inspectNode(child);
+                lastToast =
+                        System.currentTimeMillis();
             }
         }
     }
 
     @Override
     protected void onServiceConnected() {
-
         super.onServiceConnected();
 
-        Log.d(TAG,
-                "WholphinBridge Accessibility Service CONNECTED");
+        Toast.makeText(
+                this,
+                "WHOLPHIN BRIDGE ATTIVO",
+                Toast.LENGTH_LONG
+        ).show();
     }
 
     @Override
     public void onInterrupt() {
-
-        Log.d(TAG,
-                "WholphinBridge Accessibility Service INTERRUPTED");
     }
-        }
+}
