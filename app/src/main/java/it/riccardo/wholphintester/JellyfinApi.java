@@ -114,4 +114,92 @@ public class JellyfinApi {
 
         return null;
     }
+public String findItemByTitle(String title) throws Exception {
+
+    String encodedTitle =
+            URLEncoder.encode(title, "UTF-8");
+
+    String url =
+            serverUrl
+            + "/Items?Recursive=true"
+            + "&IncludeItemTypes=Movie"
+            + "&Fields=ProviderIds"
+            + "&SearchTerm="
+            + encodedTitle;
+
+    HttpURLConnection connection =
+            (HttpURLConnection)
+                    new URL(url).openConnection();
+
+    connection.setRequestMethod("GET");
+
+    connection.setRequestProperty(
+            "X-Emby-Token",
+            apiKey
+    );
+
+    connection.setConnectTimeout(10000);
+    connection.setReadTimeout(10000);
+
+    int responseCode =
+            connection.getResponseCode();
+
+    if (responseCode != 200) {
+        throw new Exception(
+                "Jellyfin HTTP " + responseCode
+        );
+    }
+
+    BufferedReader reader =
+            new BufferedReader(
+                    new InputStreamReader(
+                            connection.getInputStream()
+                    )
+            );
+
+    StringBuilder result =
+            new StringBuilder();
+
+    String line;
+
+    while ((line = reader.readLine()) != null) {
+        result.append(line);
+    }
+
+    reader.close();
+
+    JSONObject json =
+            new JSONObject(result.toString());
+
+    JSONArray items =
+            json.optJSONArray("Items");
+
+    if (items == null || items.length() == 0) {
+        return null;
+    }
+
+    // Prima cerchiamo un titolo esattamente uguale
+    for (int i = 0; i < items.length(); i++) {
+
+        JSONObject item =
+                items.getJSONObject(i);
+
+        String foundName =
+                item.optString("Name", "");
+
+        if (title.equalsIgnoreCase(foundName.trim())) {
+
+            JSONObject providerIds =
+                    item.optJSONObject("ProviderIds");
+
+            if (providerIds != null &&
+                    providerIds.has("Tmdb")) {
+
+                return item.getString("Id");
+            }
+        }
+    }
+
+    return null;
+}
 }
