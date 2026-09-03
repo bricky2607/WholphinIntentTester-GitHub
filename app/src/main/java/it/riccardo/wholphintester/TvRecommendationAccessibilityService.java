@@ -2,6 +2,7 @@ package it.riccardo.wholphintester;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -11,13 +12,6 @@ public class TvRecommendationAccessibilityService
         extends AccessibilityService {
 
     private String lastTitle = "";
-
-    // USA GLI STESSI VALORI CHE HAI GIÀ NEL TUO JELLYFINAPI
-    private static final String JELLYFIN_URL =
-            "https://jellybrick.duckdns.org";
-
-    private static final String JELLYFIN_API_KEY =
-            "INCOLLA_QUI_LA_STESSA_API_KEY";
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -34,8 +28,7 @@ public class TvRecommendationAccessibilityService
             return;
         }
 
-        AccessibilityNodeInfo node =
-                event.getSource();
+        AccessibilityNodeInfo node = event.getSource();
 
         if (node == null) {
             return;
@@ -55,8 +48,7 @@ public class TvRecommendationAccessibilityService
             return;
         }
 
-        String title =
-                cleanTitle(raw);
+        String title = cleanTitle(raw);
 
         if (title.isEmpty()) {
             return;
@@ -68,20 +60,44 @@ public class TvRecommendationAccessibilityService
 
         lastTitle = title;
 
-        Toast.makeText(
-                this,
-                "CERCO:\n" + title,
-                Toast.LENGTH_SHORT
-        ).show();
+        showMessage("CERCO:\n" + title);
 
         new Thread(() -> {
 
             try {
 
+                SharedPreferences prefs =
+                        getSharedPreferences(
+                                "wholphin_bridge",
+                                MODE_PRIVATE
+                        );
+
+                String serverUrl =
+                        prefs.getString(
+                                "server_url",
+                                null
+                        );
+
+                String apiKey =
+                        prefs.getString(
+                                "api_key",
+                                null
+                        );
+
+                if (serverUrl == null ||
+                        apiKey == null) {
+
+                    showMessage(
+                            "CONFIGURAZIONE JELLYFIN MANCANTE"
+                    );
+
+                    return;
+                }
+
                 JellyfinApi api =
                         new JellyfinApi(
-                                JELLYFIN_URL,
-                                JELLYFIN_API_KEY
+                                serverUrl,
+                                apiKey
                         );
 
                 String itemId =
@@ -105,8 +121,7 @@ public class TvRecommendationAccessibilityService
             } catch (Exception e) {
 
                 showMessage(
-                        "ERRORE:\n"
-                        + e.getMessage()
+                        "ERRORE:\n" + e.getMessage()
                 );
             }
 
@@ -150,7 +165,7 @@ public class TvRecommendationAccessibilityService
                         Intent.ACTION_VIEW,
                         Uri.parse(
                                 "wholphin://play?itemId="
-                                + Uri.encode(itemId)
+                                        + Uri.encode(itemId)
                         )
                 );
 
