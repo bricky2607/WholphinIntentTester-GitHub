@@ -1,7 +1,6 @@
 package it.riccardo.wholphintester;
 
 import android.accessibilityservice.AccessibilityService;
-import android.graphics.Color;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
@@ -19,48 +18,97 @@ public class TvRecommendationAccessibilityService
         String packageName =
                 String.valueOf(event.getPackageName());
 
-        String text =
-                String.valueOf(event.getText());
-
-        String description = "";
-
-        AccessibilityNodeInfo source = event.getSource();
-
-        if (source != null &&
-                source.getContentDescription() != null) {
-
-            description =
-                    source.getContentDescription().toString();
+        // Ci interessano gli eventi del launcher Google TV
+        if (!"com.android.google.apps.tv.launcherx"
+                .equals(packageName)) {
+            return;
         }
 
-        // Mostra solo eventi provenienti da altre app,
-        // evitando di bombardare lo schermo con eventi nostri.
-        if (!packageName.equals(getPackageName())) {
+        AccessibilityNodeInfo root =
+                getRootInActiveWindow();
 
-            String message =
-                    "APP: " + packageName
-                    + "\nTEXT: " + text
-                    + "\nDESC: " + description;
+        if (root == null) return;
 
-            if (System.currentTimeMillis() - lastToast > 1500) {
+        StringBuilder result =
+                new StringBuilder();
 
-                Toast toast =
-                        Toast.makeText(
-                                this,
-                                message,
-                                Toast.LENGTH_LONG
-                        );
+        collectText(root, result);
 
-                toast.show();
+        if (result.length() == 0) {
+            return;
+        }
 
-                lastToast =
-                        System.currentTimeMillis();
+        if (System.currentTimeMillis() - lastToast < 2000) {
+            return;
+        }
+
+        Toast.makeText(
+                this,
+                result.toString(),
+                Toast.LENGTH_LONG
+        ).show();
+
+        lastToast =
+                System.currentTimeMillis();
+    }
+
+    private void collectText(
+            AccessibilityNodeInfo node,
+            StringBuilder result) {
+
+        if (node == null) return;
+
+        CharSequence text = node.getText();
+
+        if (text != null) {
+
+            String value =
+                    text.toString().trim();
+
+            if (!value.isEmpty()) {
+
+                if (result.length() > 0) {
+                    result.append("\n");
+                }
+
+                result.append("TEXT: ")
+                      .append(value);
             }
+        }
+
+        CharSequence description =
+                node.getContentDescription();
+
+        if (description != null) {
+
+            String value =
+                    description.toString().trim();
+
+            if (!value.isEmpty()) {
+
+                if (result.length() > 0) {
+                    result.append("\n");
+                }
+
+                result.append("DESC: ")
+                      .append(value);
+            }
+        }
+
+        for (int i = 0;
+             i < node.getChildCount();
+             i++) {
+
+            AccessibilityNodeInfo child =
+                    node.getChild(i);
+
+            collectText(child, result);
         }
     }
 
     @Override
     protected void onServiceConnected() {
+
         super.onServiceConnected();
 
         Toast.makeText(
@@ -73,4 +121,4 @@ public class TvRecommendationAccessibilityService
     @Override
     public void onInterrupt() {
     }
-}
+        }
