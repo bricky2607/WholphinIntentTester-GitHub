@@ -2,8 +2,9 @@ package it.riccardo.wholphintester;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
@@ -12,6 +13,7 @@ public class TvRecommendationAccessibilityService
         extends AccessibilityService {
 
     private String lastTitle = "";
+    private boolean processing = false;
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -22,98 +24,92 @@ public class TvRecommendationAccessibilityService
 
         int type = event.getEventType();
 
-        if (type != AccessibilityEvent.TYPE_VIEW_FOCUSED &&
-            type != AccessibilityEvent.TYPE_VIEW_SELECTED &&
-            type != AccessibilityEvent.TYPE_VIEW_CLICKED) {
+        /*
+         * Quando ci spostiamo tra le locandine:
+         * memorizziamo solamente il titolo.
+         */
+        if (type == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
+            type == AccessibilityEvent.TYPE_VIEW_SELECTED) {
+
+            AccessibilityNodeInfo node = event.getSource();
+
+            if (node == null) {
+                return;
+            }
+
+            String title = getTitleFromNode(node);
+
+            if (!title.isEmpty()) {
+                lastTitle = title;
+            }
+
+            return;
+        }
+
+        /*
+         * Cerchiamo su Jellyfin SOLO quando viene
+         * effettivamente cliccata/selezionata la locandina.
+         */
+        if (type != AccessibilityEvent.TYPE_VIEW_CLICKED) {
             return;
         }
 
         AccessibilityNodeInfo node = event.getSource();
 
-        if (node == null) {
-            return;
+        String title = "";
+
+        if (node != null) {
+            title = getTitleFromNode(node);
         }
 
-        CharSequence description =
-                node.getContentDescription();
-
-        if (description == null) {
-            return;
+        /*
+         * Se il click non contiene il contentDescription,
+         * utilizziamo l'ultimo titolo ricevuto durante il focus.
+         */
+        if (title.isEmpty()) {
+            title = lastTitle;
         }
-
-        String raw =
-                description.toString().trim();
-
-        if (raw.isEmpty()) {
-            return;
-        }
-
-        String title = cleanTitle(raw);
 
         if (title.isEmpty()) {
+            showMessage("TITOLO NON RILEVATO");
             return;
         }
 
-        if (title.equals(lastTitle)) {
+        if (processing) {
             return;
         }
 
-        lastTitle = title;
+        processing = true;
 
-        showMessage("CERCO:\n" + title);
+        final String finalTitle = title;
+
+        showMessage("CERCO:\n" + finalTitle);
 
         new Thread(() -> {
 
             try {
 
-                SharedPreferences prefs =
-                        getSharedPreferences(
-                                "wholphin_bridge",
-                                MODE_PRIVATE
-                        );
-
-                String serverUrl =
-                        prefs.getString(
-                                "server_url",
-                                null
-                        );
-
-                String apiKey =
-                        prefs.getString(
-                                "api_key",
-                                null
-                        );
-
-                if (serverUrl == null ||
-                        apiKey == null) {
-
-                    showMessage(
-                            "CONFIGURAZIONE JELLYFIN MANCANTE"
-                    );
-
-                    return;
-                }
-
                 JellyfinApi api =
                         new JellyfinApi(
-                                serverUrl,
-                                apiKey
+                                MainActivity.JELLYFIN_URL,
+                                MainActivity.JELLYFIN_API_KEY
                         );
 
                 String itemId =
-                        api.findItemByTitle(title);
+                        api.findItemByTitle(finalTitle);
 
                 if (itemId == null) {
 
                     showMessage(
-                            "NON TROVATO:\n" + title
+                            "NON TROVATO:\n" + finalTitle
                     );
 
+                    processing = false;
                     return;
                 }
 
                 showMessage(
-                        "TROVATO:\n" + title
+                        "TROVATO:\n" + finalTitle
                 );
 
                 playInWholphin(itemId);
@@ -123,20 +119,51 @@ public class TvRecommendationAccessibilityService
                 showMessage(
                         "ERRORE:\n" + e.getMessage()
                 );
+
+            } finally {
+
+                processing = false;
             }
 
         }).start();
+    }
+
+    private String getTitleFromNode(
+            AccessibilityNodeInfo node) {
+
+        CharSequence description =
+                node.getContentDescription();
+
+        if (description == null) {
+            return "";
+        }
+
+        String raw =
+                description.toString().trim();
+
+        if (raw.isEmpty()) {
+            return "";
+        }
+
+        return cleanTitle(raw);
     }
 
     private String cleanTitle(String text) {
 
         String title = text;
 
+        /*
+         * Google TV aggiunge informazioni come:
+         * "Il dio dell'amore, costo 11,99€"
+         *
+         * Conserviamo solamente il titolo.
+         */
         int priceIndex =
                 title.toLowerCase()
                         .indexOf("costo");
 
         if (priceIndex >= 0) {
+
             title =
                     title.substring(
                             0,
@@ -144,46 +171,59 @@ public class TvRecommendationAccessibilityService
                     );
         }
 
-        int commaIndex =
-                title.indexOf(",");
+        /*
+         * Rimuoviamo l'eventuale virgola rimasta
+         * prima delle informazioni sul prezzo.
+         */
+        title = title.trim();
 
-        if (commaIndex >= 0) {
+        if (title.endsWith(",")) {
             title =
                     title.substring(
                             0,
-                            commaIndex
-                    );
+                            title.length() - 1
+                    ).trim();
         }
 
-        return title.trim();
+        return title;
     }
 
     private void playInWholphin(String itemId) {
 
-        Intent intent =
-                new Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse(
-                                "wholphin://play?itemId="
-                                        + Uri.encode(itemId)
-                        )
-                );
+        try {
 
-        intent.setPackage(
-                "com.github.damontecres.wholphin"
-        );
+            Intent intent =
+                    new Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(
+                                    "wholphin://play?itemId="
+                                            + Uri.encode(itemId)
+                            )
+                    );
 
-        intent.addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK
-        );
+            intent.setPackage(
+                    "com.github.damontecres.wholphin"
+            );
 
-        startActivity(intent);
+            intent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+            );
+
+            startActivity(intent);
+
+        } catch (Exception e) {
+
+            showMessage(
+                    "ERRORE WHOLPHIN:\n"
+                            + e.getMessage()
+            );
+        }
     }
 
     private void showMessage(String message) {
 
-        new android.os.Handler(
-                android.os.Looper.getMainLooper()
+        new Handler(
+                Looper.getMainLooper()
         ).post(() ->
                 Toast.makeText(
                         this,
