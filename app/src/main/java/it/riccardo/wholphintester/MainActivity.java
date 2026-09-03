@@ -1,11 +1,10 @@
 package it.riccardo.wholphintester;
 
 import android.app.Activity;
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.widget.Toast;
+import android.widget.TextView;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -24,9 +23,17 @@ public class MainActivity extends Activity {
     private final ExecutorService executor =
             Executors.newSingleThreadExecutor();
 
+    private TextView status;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        status = new TextView(this);
+        status.setTextSize(18);
+        status.setPadding(40, 40, 40, 40);
+
+        setContentView(status);
 
         handleIntent(getIntent());
     }
@@ -34,41 +41,59 @@ public class MainActivity extends Activity {
     private void handleIntent(Intent intent) {
 
         if (intent == null) {
+            status.setText("Bridge avviato\n\nIntent: NULL");
             return;
         }
 
         Uri data = intent.getData();
 
+        StringBuilder info = new StringBuilder();
+
+        info.append("BRIDGE ATTIVO\n\n");
+
+        info.append("Action:\n");
+        info.append(intent.getAction());
+        info.append("\n\n");
+
+        info.append("Data / URI:\n");
+        info.append(data);
+        info.append("\n\n");
+
         if (data == null) {
+            info.append("TMDB: NESSUNO");
+            status.setText(info.toString());
             return;
         }
 
-        // Google TV deve chiamare:
-        // wholphinbridge://play?tmdb=12345
-        if (!"wholphinbridge".equals(data.getScheme())) {
-            return;
+        info.append("Scheme: ");
+        info.append(data.getScheme());
+        info.append("\n");
+
+        info.append("Host: ");
+        info.append(data.getHost());
+        info.append("\n\n");
+
+        String tmdb = data.getQueryParameter("tmdb");
+
+        info.append("TMDB: ");
+        info.append(tmdb);
+        info.append("\n\n");
+
+        status.setText(info.toString());
+
+        if (tmdb != null && !tmdb.isEmpty()) {
+            findAndLaunchWholphin(tmdb);
         }
-
-        if (!"play".equals(data.getHost())) {
-            return;
-        }
-
-        String tmdbId = data.getQueryParameter("tmdb");
-
-        if (tmdbId == null || tmdbId.trim().isEmpty()) {
-            showError("TMDB ID non ricevuto.");
-            return;
-        }
-
-        findAndLaunchWholphin(tmdbId);
     }
 
     private void findAndLaunchWholphin(String tmdbId) {
 
-        if (JELLYFIN_API_KEY.startsWith("INSERISCI")) {
-            showError("API key Jellyfin non configurata.");
-            return;
-        }
+        status.setText(
+                status.getText()
+                        + "\n\nRicerca TMDB "
+                        + tmdbId
+                        + " su Jellyfin..."
+        );
 
         executor.execute(() -> {
 
@@ -83,26 +108,35 @@ public class MainActivity extends Activity {
                 String itemId =
                         api.findItemByTmdb(tmdbId);
 
-                if (itemId == null) {
+                runOnUiThread(() -> {
 
-                    runOnUiThread(() ->
-                            showError(
-                                    "Film non trovato su Jellyfin."
-                            )
+                    if (itemId == null) {
+
+                        status.setText(
+                                status.getText()
+                                        + "\n\nTMDB NON TROVATO SU JELLYFIN"
+                        );
+
+                        return;
+                    }
+
+                    status.setText(
+                            status.getText()
+                                    + "\n\nJellyfin itemId:\n"
+                                    + itemId
+                                    + "\n\nApro Wholphin..."
                     );
 
-                    return;
-                }
-
-                runOnUiThread(() ->
-                        launchWholphin(itemId)
-                );
+                    launchWholphin(itemId);
+                });
 
             } catch (Exception e) {
 
                 runOnUiThread(() ->
-                        showError(
-                                "Errore durante la ricerca Jellyfin."
+                        status.setText(
+                                status.getText()
+                                        + "\n\nERRORE:\n"
+                                        + e.getMessage()
                         )
                 );
             }
@@ -122,50 +156,22 @@ public class MainActivity extends Activity {
 
             startActivity(intent);
 
-        } catch (ActivityNotFoundException e) {
-
-            try {
-
-                Intent fallback = new Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse(
-                                "wholphin://play?itemId="
-                                        + Uri.encode(itemId)
-                        )
-                );
-
-                fallback.setPackage(WHOLPHIN_PACKAGE);
-
-                startActivity(fallback);
-
-            } catch (Exception ignored) {
-
-                showError(
-                        "Impossibile aprire Wholphin."
-                );
-            }
-
         } catch (Exception e) {
 
-            showError(
-                    "Errore durante l'apertura di Wholphin."
+            status.setText(
+                    status.getText()
+                            + "\n\nERRORE WHOLPHIN:\n"
+                            + e.getMessage()
             );
         }
-    }
-
-    private void showError(String message) {
-
-        Toast.makeText(
-                this,
-                message,
-                Toast.LENGTH_LONG
-        ).show();
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+
         setIntent(intent);
+
         handleIntent(intent);
     }
 
