@@ -43,13 +43,24 @@ public class MainActivity extends Activity {
             return;
         }
 
-        String tmdb = data.getQueryParameter("tmdb");
-
-        if (tmdb == null || tmdb.isEmpty()) {
+        // Google TV deve chiamare:
+        // wholphinbridge://play?tmdb=12345
+        if (!"wholphinbridge".equals(data.getScheme())) {
             return;
         }
 
-        findAndLaunchWholphin(tmdb);
+        if (!"play".equals(data.getHost())) {
+            return;
+        }
+
+        String tmdbId = data.getQueryParameter("tmdb");
+
+        if (tmdbId == null || tmdbId.trim().isEmpty()) {
+            showError("TMDB ID non ricevuto.");
+            return;
+        }
+
+        findAndLaunchWholphin(tmdbId);
     }
 
     private void findAndLaunchWholphin(String tmdbId) {
@@ -91,7 +102,7 @@ public class MainActivity extends Activity {
 
                 runOnUiThread(() ->
                         showError(
-                                "Errore durante la ricerca."
+                                "Errore durante la ricerca Jellyfin."
                         )
                 );
             }
@@ -119,7 +130,7 @@ public class MainActivity extends Activity {
                         Intent.ACTION_VIEW,
                         Uri.parse(
                                 "wholphin://play?itemId="
-                                        + itemId
+                                        + Uri.encode(itemId)
                         )
                 );
 
