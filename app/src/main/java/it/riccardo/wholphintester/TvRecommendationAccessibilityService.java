@@ -12,10 +12,19 @@ public class TvRecommendationAccessibilityService
 
     private String lastTitle = "";
 
+    // USA GLI STESSI VALORI CHE HAI GIÀ NEL TUO JELLYFINAPI
+    private static final String JELLYFIN_URL =
+            "https://jellybrick.duckdns.org";
+
+    private static final String JELLYFIN_API_KEY =
+            "INCOLLA_QUI_LA_STESSA_API_KEY";
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
 
-        if (event == null) return;
+        if (event == null) {
+            return;
+        }
 
         int type = event.getEventType();
 
@@ -25,58 +34,148 @@ public class TvRecommendationAccessibilityService
             return;
         }
 
-        AccessibilityNodeInfo node = event.getSource();
+        AccessibilityNodeInfo node =
+                event.getSource();
 
-        if (node == null) return;
+        if (node == null) {
+            return;
+        }
 
         CharSequence description =
                 node.getContentDescription();
 
-        if (description == null) return;
+        if (description == null) {
+            return;
+        }
 
-        String raw = description.toString().trim();
+        String raw =
+                description.toString().trim();
 
-        if (raw.isEmpty()) return;
+        if (raw.isEmpty()) {
+            return;
+        }
 
-        String title = cleanTitle(raw);
+        String title =
+                cleanTitle(raw);
 
-        if (title.isEmpty()) return;
+        if (title.isEmpty()) {
+            return;
+        }
 
-        if (title.equals(lastTitle)) return;
+        if (title.equals(lastTitle)) {
+            return;
+        }
 
         lastTitle = title;
 
         Toast.makeText(
                 this,
-                "FILM:\n" + title,
-                Toast.LENGTH_LONG
+                "CERCO:\n" + title,
+                Toast.LENGTH_SHORT
         ).show();
 
-        // Per ora NON apriamo Wholphin.
-        // Abbiamo appena verificato che il titolo
-        // viene estratto correttamente.
+        new Thread(() -> {
+
+            try {
+
+                JellyfinApi api =
+                        new JellyfinApi(
+                                JELLYFIN_URL,
+                                JELLYFIN_API_KEY
+                        );
+
+                String itemId =
+                        api.findItemByTitle(title);
+
+                if (itemId == null) {
+
+                    showMessage(
+                            "NON TROVATO:\n" + title
+                    );
+
+                    return;
+                }
+
+                showMessage(
+                        "TROVATO:\n" + title
+                );
+
+                playInWholphin(itemId);
+
+            } catch (Exception e) {
+
+                showMessage(
+                        "ERRORE:\n"
+                        + e.getMessage()
+                );
+            }
+
+        }).start();
     }
 
     private String cleanTitle(String text) {
 
         String title = text;
 
-        // Rimuove informazioni sul prezzo
         int priceIndex =
-                title.toLowerCase().indexOf("costo");
+                title.toLowerCase()
+                        .indexOf("costo");
 
         if (priceIndex >= 0) {
-            title = title.substring(0, priceIndex);
+            title =
+                    title.substring(
+                            0,
+                            priceIndex
+                    );
         }
 
-        // Rimuove eventuali informazioni dopo una virgola
-        int commaIndex = title.indexOf(",");
+        int commaIndex =
+                title.indexOf(",");
 
         if (commaIndex >= 0) {
-            title = title.substring(0, commaIndex);
+            title =
+                    title.substring(
+                            0,
+                            commaIndex
+                    );
         }
 
         return title.trim();
+    }
+
+    private void playInWholphin(String itemId) {
+
+        Intent intent =
+                new Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(
+                                "wholphin://play?itemId="
+                                + Uri.encode(itemId)
+                        )
+                );
+
+        intent.setPackage(
+                "com.github.damontecres.wholphin"
+        );
+
+        intent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+        );
+
+        startActivity(intent);
+    }
+
+    private void showMessage(String message) {
+
+        new android.os.Handler(
+                android.os.Looper.getMainLooper()
+        ).post(() ->
+                Toast.makeText(
+                        this,
+                        message,
+                        Toast.LENGTH_LONG
+                ).show()
+        );
     }
 
     @Override
