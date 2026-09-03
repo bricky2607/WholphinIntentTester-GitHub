@@ -34,7 +34,6 @@
 
         </activity>
 
-
         <service
             android:name=".TvRecommendationAccessibilityService"
             android:exported="true"
