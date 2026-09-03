@@ -1,6 +1,6 @@
-<resources><string name="app_name">Wholphin Intent Tester</string>
+<resources>
+  <string name="app_name">Wholphin Intent Tester</string>
   <string name="accessibility_description">
     Rileva le selezioni dei film su Google TV
-</string>
-                                                                    
-                                                                /resources>
+</string> 
+</resources>
