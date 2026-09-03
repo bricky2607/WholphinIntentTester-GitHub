@@ -5,11 +5,6 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.concurrent.ExecutorService;
@@ -17,211 +12,155 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
 
-private static final String WHOLPHIN_PACKAGE =
-        "com.github.damontecres.wholphin";
+    private static final String WHOLPHIN_PACKAGE =
+            "com.github.damontecres.wholphin";
 
-private static final String JELLYFIN_URL =
-        "https://jellybrick.duckdns.org";
+    private static final String JELLYFIN_URL =
+            "https://jellybrick.duckdns.org";
 
-private static final String JELLYFIN_API_KEY =
-        BuildConfig.JELLYFIN_API_KEY;
+    private static final String JELLYFIN_API_KEY =
+            BuildConfig.JELLYFIN_API_KEY;
 
-private final ExecutorService executor =
-        Executors.newSingleThreadExecutor();
+    private final ExecutorService executor =
+            Executors.newSingleThreadExecutor();
 
-@Override
-protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-    handleIntent(getIntent());
-
-    LinearLayout layout = new LinearLayout(this);
-    layout.setOrientation(LinearLayout.VERTICAL);
-    layout.setGravity(Gravity.CENTER);
-
-    int pad = 48;
-    layout.setPadding(pad, pad, pad, pad);
-
-    TextView title = new TextView(this);
-    title.setText("Wholphin Intent Tester");
-    title.setTextSize(28);
-    title.setGravity(Gravity.CENTER);
-
-    layout.addView(title,
-            new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT));
-
-    TextView info = new TextView(this);
-    info.setText(
-            "\nGoogle TV → TMDB → Jellyfin → Wholphin"
-    );
-    info.setTextSize(18);
-    info.setGravity(Gravity.CENTER);
-
-    layout.addView(info,
-            new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT));
-
-    Button test = new Button(this);
-    test.setText("TEST TMDB 524");
-    test.setTextSize(18);
-    test.setOnClickListener(v ->
-            findAndLaunchWholphin("524"));
-
-    LinearLayout.LayoutParams tp =
-            new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT);
-
-    tp.topMargin = 48;
-    layout.addView(test, tp);
-
-    setContentView(layout);
-    test.requestFocus();
-}
-
-private void handleIntent(Intent intent) {
-
-    if (intent == null) {
-        return;
+        handleIntent(getIntent());
     }
 
-    Uri data = intent.getData();
+    private void handleIntent(Intent intent) {
 
-    if (data == null) {
-        return;
-    }
+        if (intent == null) {
+            return;
+        }
 
-    String tmdb = data.getQueryParameter("tmdb");
+        Uri data = intent.getData();
 
-    if (tmdb != null && !tmdb.isEmpty()) {
+        if (data == null) {
+            return;
+        }
 
-        toast("TMDB ricevuto: " + tmdb);
+        String tmdb = data.getQueryParameter("tmdb");
+
+        if (tmdb == null || tmdb.isEmpty()) {
+            return;
+        }
 
         findAndLaunchWholphin(tmdb);
     }
-}
 
-private void findAndLaunchWholphin(String tmdbId) {
+    private void findAndLaunchWholphin(String tmdbId) {
 
-    if (JELLYFIN_API_KEY.startsWith("INSERISCI")) {
-        toast("API key Jellyfin non configurata.");
-        return;
-    }
+        if (JELLYFIN_API_KEY.startsWith("INSERISCI")) {
+            showError("API key Jellyfin non configurata.");
+            return;
+        }
 
-    toast("Cerco TMDB " + tmdbId + " su Jellyfin...");
+        executor.execute(() -> {
 
-    executor.execute(() -> {
+            try {
 
-        try {
+                JellyfinApi api =
+                        new JellyfinApi(
+                                JELLYFIN_URL,
+                                JELLYFIN_API_KEY
+                        );
 
-            JellyfinApi api =
-                    new JellyfinApi(
-                            JELLYFIN_URL,
-                            JELLYFIN_API_KEY
-                    );
-
-            String itemId =
-                    api.findItemByTmdb(tmdbId);
-
-            runOnUiThread(() -> {
+                String itemId =
+                        api.findItemByTmdb(tmdbId);
 
                 if (itemId == null) {
 
-                    toast(
-                            "TMDB " + tmdbId
-                            + " non trovato su Jellyfin."
+                    runOnUiThread(() ->
+                            showError(
+                                    "Film non trovato su Jellyfin."
+                            )
                     );
 
                     return;
                 }
 
-                toast(
-                        "Trovato Jellyfin itemId: "
-                        + itemId
+                runOnUiThread(() ->
+                        launchWholphin(itemId)
                 );
 
-                launchWholphin(itemId);
-            });
+            } catch (Exception e) {
 
-        } catch (Exception e) {
+                runOnUiThread(() ->
+                        showError(
+                                "Errore durante la ricerca."
+                        )
+                );
+            }
+        });
+    }
 
-            runOnUiThread(() ->
-                    toast(
-                            "Errore Jellyfin: "
-                            + e.getMessage()
-                    )
-            );
-        }
-    });
-}
-
-private void launchWholphin(String itemId) {
-
-    try {
-
-        Intent intent = new Intent(
-                "com.github.damontecres.wholphin.PLAYBACK"
-        );
-
-        intent.setPackage(WHOLPHIN_PACKAGE);
-        intent.putExtra("itemId", itemId);
-
-        startActivity(intent);
-
-    } catch (ActivityNotFoundException e) {
+    private void launchWholphin(String itemId) {
 
         try {
 
-            Intent fallback = new Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse(
-                            "wholphin://play?itemId="
-                                    + itemId
-                    )
+            Intent intent = new Intent(
+                    "com.github.damontecres.wholphin.PLAYBACK"
             );
 
-            fallback.setPackage(WHOLPHIN_PACKAGE);
+            intent.setPackage(WHOLPHIN_PACKAGE);
+            intent.putExtra("itemId", itemId);
 
-            startActivity(fallback);
+            startActivity(intent);
 
-        } catch (Exception ignored) {
+        } catch (ActivityNotFoundException e) {
 
-            toast(
-                    "Wholphin non ha accettato l'intent."
+            try {
+
+                Intent fallback = new Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(
+                                "wholphin://play?itemId="
+                                        + itemId
+                        )
+                );
+
+                fallback.setPackage(WHOLPHIN_PACKAGE);
+
+                startActivity(fallback);
+
+            } catch (Exception ignored) {
+
+                showError(
+                        "Impossibile aprire Wholphin."
+                );
+            }
+
+        } catch (Exception e) {
+
+            showError(
+                    "Errore durante l'apertura di Wholphin."
             );
         }
-
-    } catch (Exception e) {
-
-        toast(
-                "Errore apertura Wholphin: "
-                        + e.getMessage()
-        );
     }
-}
 
-private void toast(String message) {
-    Toast.makeText(
-            this,
-            message,
-            Toast.LENGTH_LONG
-    ).show();
-}
+    private void showError(String message) {
 
-@Override
-protected void onNewIntent(Intent intent) {
-    super.onNewIntent(intent);
-    setIntent(intent);
-    handleIntent(intent);
-}
+        Toast.makeText(
+                this,
+                message,
+                Toast.LENGTH_LONG
+        ).show();
+    }
 
-@Override
-protected void onDestroy() {
-    super.onDestroy();
-    executor.shutdown();
-}
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
+    }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        executor.shutdown();
+    }
 }
