@@ -24,6 +24,10 @@ public class TvRecommendationAccessibilityService
 
         int type = event.getEventType();
 
+        /*
+         * Quando ci spostiamo tra le locandine,
+         * memorizziamo il titolo ma NON apriamo Wholphin.
+         */
         if (type == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
             type == AccessibilityEvent.TYPE_VIEW_SELECTED) {
 
@@ -42,6 +46,10 @@ public class TvRecommendationAccessibilityService
             return;
         }
 
+        /*
+         * La ricerca su Jellyfin parte SOLO quando
+         * viene effettivamente cliccata la locandina.
+         */
         if (type != AccessibilityEvent.TYPE_VIEW_CLICKED) {
             return;
         }
@@ -54,6 +62,10 @@ public class TvRecommendationAccessibilityService
             title = getTitleFromNode(node);
         }
 
+        /*
+         * Se il click non contiene il titolo,
+         * utilizziamo l'ultimo titolo rilevato durante il focus.
+         */
         if (title.isEmpty()) {
             title = lastTitle;
         }
@@ -142,25 +154,54 @@ public class TvRecommendationAccessibilityService
 
         String lower = title.toLowerCase();
 
-        String[] separators = {
+        /*
+         * Google TV può aggiungere dopo il titolo
+         * informazioni provenienti dai vari servizi.
+         *
+         * Esempi:
+         *
+         * "Magari, RaiPlay"
+         * "Magari, valutazione Rotten Tomatoes"
+         * "Magari, richiede l'abbonamento a HBO Plus"
+         * "Magari, costo 11,99€"
+         */
+
+        String[] metadataMarkers = {
+
                 "richiede l'abbonamento",
                 "richiede abbonamento",
+
                 "disponibile con l'abbonamento",
                 "disponibile con abbonamento",
+
                 "guarda con l'abbonamento",
                 "guarda con abbonamento",
+
+                "valutazione rotten tomatoes",
+                "rotten tomatoes",
+
+                "disponibile su",
+                "guarda su",
+
+                "costo",
+
                 "acquista",
+                "acquisto",
+
                 "noleggia",
                 "noleggio",
-                "acquisto",
-                "costo"
+
+                "prezzo"
         };
 
         int cutIndex = -1;
 
-        for (String separator : separators) {
+        /*
+         * Cerchiamo i marcatori espliciti di metadati.
+         */
+        for (String marker : metadataMarkers) {
 
-            int index = lower.indexOf(separator);
+            int index = lower.indexOf(marker);
 
             if (index >= 0 &&
                     (cutIndex == -1 || index < cutIndex)) {
@@ -169,17 +210,68 @@ public class TvRecommendationAccessibilityService
             }
         }
 
-        if (cutIndex >= 0) {
-            title = title.substring(0, cutIndex);
+        /*
+         * Se Google TV indica semplicemente un provider
+         * dopo una virgola, riconosciamo alcuni provider comuni.
+         */
+        String[] providers = {
+
+                "raiplay",
+                "netflix",
+                "prime video",
+                "amazon prime video",
+                "disney+",
+                "disney plus",
+                "max",
+                "hbo max",
+                "hbo plus",
+                "paramount+",
+                "paramount plus",
+                "apple tv+",
+                "apple tv",
+                "sky",
+                "now",
+                "mediaset infinity",
+                "pluto tv"
+        };
+
+        for (String provider : providers) {
+
+            String marker = ", " + provider;
+
+            int index = lower.indexOf(marker);
+
+            if (index >= 0 &&
+                    (cutIndex == -1 || index < cutIndex)) {
+
+                cutIndex = index;
+            }
         }
 
+        /*
+         * Tagliamo la parte di metadati.
+         */
+        if (cutIndex >= 0) {
+
+            title =
+                    title.substring(
+                            0,
+                            cutIndex
+                    );
+        }
+
+        /*
+         * Pulizia finale.
+         */
         title = title.trim();
 
         while (title.endsWith(",")) {
-            title = title.substring(
-                    0,
-                    title.length() - 1
-            ).trim();
+
+            title =
+                    title.substring(
+                            0,
+                            title.length() - 1
+                    ).trim();
         }
 
         return title;
