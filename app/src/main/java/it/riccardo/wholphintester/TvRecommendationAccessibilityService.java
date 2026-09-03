@@ -1,6 +1,8 @@
 package it.riccardo.wholphintester;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.Intent;
+import android.net.Uri;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Toast;
@@ -8,80 +10,73 @@ import android.widget.Toast;
 public class TvRecommendationAccessibilityService
         extends AccessibilityService {
 
-    private long lastToast = 0;
+    private String lastTitle = "";
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
 
-        if (event == null) {
+        if (event == null) return;
+
+        int type = event.getEventType();
+
+        if (type != AccessibilityEvent.TYPE_VIEW_FOCUSED &&
+            type != AccessibilityEvent.TYPE_VIEW_SELECTED &&
+            type != AccessibilityEvent.TYPE_VIEW_CLICKED) {
             return;
         }
 
-        AccessibilityNodeInfo source =
-                event.getSource();
+        AccessibilityNodeInfo node = event.getSource();
 
-        StringBuilder result =
-                new StringBuilder();
+        if (node == null) return;
 
-        // Testo direttamente associato all'evento
-        if (event.getText() != null &&
-                !event.getText().isEmpty()) {
+        CharSequence description =
+                node.getContentDescription();
 
-            result.append("EVENT: ")
-                    .append(event.getText());
-        }
+        if (description == null) return;
 
-        // Content description del nodo selezionato
-        if (source != null) {
+        String raw = description.toString().trim();
 
-            CharSequence description =
-                    source.getContentDescription();
+        if (raw.isEmpty()) return;
 
-            if (description != null &&
-                    description.length() > 0) {
+        String title = cleanTitle(raw);
 
-                if (result.length() > 0) {
-                    result.append("\n");
-                }
+        if (title.isEmpty()) return;
 
-                result.append("DESC: ")
-                        .append(description);
-            }
+        if (title.equals(lastTitle)) return;
 
-            CharSequence text =
-                    source.getText();
-
-            if (text != null &&
-                    text.length() > 0) {
-
-                if (result.length() > 0) {
-                    result.append("\n");
-                }
-
-                result.append("NODE: ")
-                        .append(text);
-            }
-        }
-
-        if (result.length() == 0) {
-            result.append("EVENT RICEVUTO\n")
-                    .append("Tipo: ")
-                    .append(event.getEventType());
-        }
-
-        // Evita troppi messaggi consecutivi
-        if (System.currentTimeMillis() - lastToast < 1500) {
-            return;
-        }
+        lastTitle = title;
 
         Toast.makeText(
                 this,
-                result.toString(),
+                "FILM:\n" + title,
                 Toast.LENGTH_LONG
         ).show();
 
-        lastToast =
-                System.currentTimeMillis();
+        // Per ora NON apriamo Wholphin.
+        // Abbiamo appena verificato che il titolo
+        // viene estratto correttamente.
+    }
+
+    private String cleanTitle(String text) {
+
+        String title = text;
+
+        // Rimuove informazioni sul prezzo
+        int priceIndex =
+                title.toLowerCase().indexOf("costo");
+
+        if (priceIndex >= 0) {
+            title = title.substring(0, priceIndex);
+        }
+
+        // Rimuove eventuali informazioni dopo una virgola
+        int commaIndex = title.indexOf(",");
+
+        if (commaIndex >= 0) {
+            title = title.substring(0, commaIndex);
+        }
+
+        return title.trim();
     }
 
     @Override
