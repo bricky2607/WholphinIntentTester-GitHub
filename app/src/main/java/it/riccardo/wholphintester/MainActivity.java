@@ -14,10 +14,10 @@ public class MainActivity extends Activity {
     private static final String WHOLPHIN_PACKAGE =
             "com.github.damontecres.wholphin";
 
-    private static final String JELLYFIN_URL =
+    public static final String JELLYFIN_URL =
             "https://jellybrick.duckdns.org";
 
-    private static final String JELLYFIN_API_KEY =
+    public static final String JELLYFIN_API_KEY =
             BuildConfig.JELLYFIN_API_KEY;
 
     private final ExecutorService executor =
