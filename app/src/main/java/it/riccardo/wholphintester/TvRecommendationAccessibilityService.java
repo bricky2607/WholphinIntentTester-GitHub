@@ -13,32 +13,64 @@ public class TvRecommendationAccessibilityService
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
 
-        if (event == null) return;
-
-        String packageName =
-                String.valueOf(event.getPackageName());
-
-        // Ci interessano gli eventi del launcher Google TV
-        if (!"com.android.google.apps.tv.launcherx"
-                .equals(packageName)) {
+        if (event == null) {
             return;
         }
 
-        AccessibilityNodeInfo root =
-                getRootInActiveWindow();
-
-        if (root == null) return;
+        AccessibilityNodeInfo source =
+                event.getSource();
 
         StringBuilder result =
                 new StringBuilder();
 
-        collectText(root, result);
+        // Testo direttamente associato all'evento
+        if (event.getText() != null &&
+                !event.getText().isEmpty()) {
 
-        if (result.length() == 0) {
-            return;
+            result.append("EVENT: ")
+                    .append(event.getText());
         }
 
-        if (System.currentTimeMillis() - lastToast < 2000) {
+        // Content description del nodo selezionato
+        if (source != null) {
+
+            CharSequence description =
+                    source.getContentDescription();
+
+            if (description != null &&
+                    description.length() > 0) {
+
+                if (result.length() > 0) {
+                    result.append("\n");
+                }
+
+                result.append("DESC: ")
+                        .append(description);
+            }
+
+            CharSequence text =
+                    source.getText();
+
+            if (text != null &&
+                    text.length() > 0) {
+
+                if (result.length() > 0) {
+                    result.append("\n");
+                }
+
+                result.append("NODE: ")
+                        .append(text);
+            }
+        }
+
+        if (result.length() == 0) {
+            result.append("EVENT RICEVUTO\n")
+                    .append("Tipo: ")
+                    .append(event.getEventType());
+        }
+
+        // Evita troppi messaggi consecutivi
+        if (System.currentTimeMillis() - lastToast < 1500) {
             return;
         }
 
@@ -50,60 +82,6 @@ public class TvRecommendationAccessibilityService
 
         lastToast =
                 System.currentTimeMillis();
-    }
-
-    private void collectText(
-            AccessibilityNodeInfo node,
-            StringBuilder result) {
-
-        if (node == null) return;
-
-        CharSequence text = node.getText();
-
-        if (text != null) {
-
-            String value =
-                    text.toString().trim();
-
-            if (!value.isEmpty()) {
-
-                if (result.length() > 0) {
-                    result.append("\n");
-                }
-
-                result.append("TEXT: ")
-                      .append(value);
-            }
-        }
-
-        CharSequence description =
-                node.getContentDescription();
-
-        if (description != null) {
-
-            String value =
-                    description.toString().trim();
-
-            if (!value.isEmpty()) {
-
-                if (result.length() > 0) {
-                    result.append("\n");
-                }
-
-                result.append("DESC: ")
-                      .append(value);
-            }
-        }
-
-        for (int i = 0;
-             i < node.getChildCount();
-             i++) {
-
-            AccessibilityNodeInfo child =
-                    node.getChild(i);
-
-            collectText(child, result);
-        }
     }
 
     @Override
